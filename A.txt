@@ -95,7 +95,7 @@ EXIT_:
 
 
 PARSEKEY PROC NEAR
-
+        PUSH BX
         CMP AL,'S'
         JE KEY_S
         CMP AL,'s'
@@ -119,47 +119,95 @@ PARSEKEY PROC NEAR
         
 
 KEY_S:
-        MOV [PIC_INDEX],0      ;1~BLACK 2~WHITE
-        CALL DRAWPIC_B
-
+        CALL GET_PIC_INDEX
+        CALL DRAWPIC
         INC [LOCX]
-        CALL JUDGE_EDGE
-
-
+        CMP [LOCX],16
+        JL EDGE_L1
+        MOV [LOCX],0
+EDGE_L1:
+        MOV [PIC_INDEX],3
+        CALL DRAWPIC
         JMP RET_
+
 KEY_W:
-        
+        CALL GET_PIC_INDEX
+        CALL DRAWPIC
         DEC [LOCX]
+        CMP [LOCX],0
+        JGE EDGE_L2
+        MOV [LOCX],15
+EDGE_L2:
+        MOV [PIC_INDEX],3
+        CALL DRAWPIC
+        JMP RET_
 
-KEY_A:
-
+KEY_A:  
+        CALL GET_PIC_INDEX
+        CALL DRAWPIC
         DEC [LOCY]
+        CMP [LOCY],0
+        JGE EDGE_L3
+        MOV [LOCY],15
+EDGE_L3:
+        MOV [PIC_INDEX],3
+        CALL DRAWPIC
+        JMP RET_
+
 KEY_D:
-
+        CALL GET_PIC_INDEX
+        CALL DRAWPIC
         INC [LOCY]
+        CMP [LOCY],16
+        JL EDGE_L4
+        MOV [LOCY],0
+EDGE_L4:
+        MOV [PIC_INDEX],3
+        CALL DRAWPIC
+        JMP RET_
 
-
-RET_:
-
-        RET
-PARSEKEY ENDP
-
-
-JUDGELEGAL PROC NEAR
-        MOV AL,1
-        RET
-JUDGELEGAL ENDP
-
-
-GET_PIC_PTR PROC NEAR
+KEY_SPACE:
         MOV BX,[LOCX]
         SHL BX,1
         SHL BX,1
         SHL BX,1
         SHL BX,1
-        
+        ADD BX,[LOCY]
+        CMP [BX+BOARD],0
+        JNE RET_
+        MOV AX,[CUR_PLAYER]
+        MOV [BX+BOARD],AX
+        MOV [PIC_INDEX],AX
+        CALL DRAWPIC
+        CALL JUDGE_WINNER
+RET_:
+        POP BX
         RET
-GET_PIC_PTR ENDP
+PARSEKEY ENDP
+
+JUDGE_WINNER PROC NEAR
+
+
+        RET
+JUDGE_WINNER ENDP
+
+
+
+GET_PIC_INDEX PROC NEAR
+        PUSH AX
+        PUSH BX
+        MOV BX,[LOCX]
+        SHL BX,1
+        SHL BX,1
+        SHL BX,1
+        SHL BX,1
+        ADD BX,[LOCY]
+        MOV AX,[BX+BOARD]
+        MOV [PIC_INDEX],AX
+        POP BX
+        POP AX
+        RET
+GET_PIC_INDEX ENDP
 
 
 
