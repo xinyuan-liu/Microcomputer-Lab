@@ -276,10 +276,10 @@ LOOP_1R:
         MOV AH,0CH
         INT 10H
         ADD CX,1
-        CMP CX,366
+        CMP CX,387
         JL LOOP_1R
         ADD DX,21
-        CMP DX,366
+        CMP DX,387
         JL LOOP_1L
 
         MOV DX,50     ;0-479
@@ -291,10 +291,10 @@ LOOP_2R:
         MOV AH,0CH
         INT 10H
         ADD DX,1
-        CMP DX,366
+        CMP DX,387
         JL LOOP_2R
         ADD CX,21
-        CMP CX,366
+        CMP CX,387
         JL LOOP_2L
         
         POP DI
