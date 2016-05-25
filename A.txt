@@ -5,12 +5,12 @@ CIRB DB 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
      DB 0,0,0,0,1,1,0,0,0,0,1,1,0,0,0,0
      DB 0,0,0,1,0,0,0,0,0,0,0,0,1,0,0,0
      DB 0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,0
-     DB 0,1,0,0,0,0,0,0,0,0,0,0,0,1,0,0
      DB 0,1,0,0,0,0,0,0,0,0,0,0,0,0,1,0
      DB 0,1,0,0,0,0,0,0,0,0,0,0,0,0,1,0
      DB 0,1,0,0,0,0,0,0,0,0,0,0,0,0,1,0
      DB 0,1,0,0,0,0,0,0,0,0,0,0,0,0,1,0
-     DB 0,1,0,0,0,0,0,0,0,0,0,0,0,1,0,0
+     DB 0,1,0,0,0,0,0,0,0,0,0,0,0,0,1,0
+     DB 0,1,0,0,0,0,0,0,0,0,0,0,0,0,1,0
      DB 0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,0
      DB 0,0,0,1,0,0,0,0,0,0,0,0,1,0,0,0
      DB 0,0,0,0,1,0,0,0,0,0,0,1,0,0,0,0
@@ -23,12 +23,12 @@ CIRW DB 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
      DB 0,0,0,0,1,1,1,1,1,1,1,1,0,0,0,0
      DB 0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0
      DB 0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0
-     DB 0,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0
      DB 0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0
      DB 0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0
      DB 0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0
      DB 0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0
-     DB 0,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0
+     DB 0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0
+     DB 0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0
      DB 0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0
      DB 0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0
      DB 0,0,0,0,1,1,1,1,1,1,1,1,0,0,0,0
@@ -55,13 +55,15 @@ PICX DB 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 
 BOARD DB 256 DUP(0)   		;0~ENPTY 1~BLACK 2~WHITE
 
+TABLE_PLAYER DW 0,2,1
+
 POSX DW 0
 POSY DW 0
 LOCX DW 0
 LOCY DW 0
 
 PIC_INDEX DW 0
-CUR_PLAYER DW 2
+CUR_PLAYER DW 1
 
 DATA ENDS
 
@@ -71,13 +73,9 @@ ASSUME  CS:CODE,DS:DATA
 START:
         MOV AX,DATA
         MOV DS,AX
-
         MOV AX,12H
         INT 10H
-
         CALL DRAWBOARD
-
-        
         MOV [PIC_INDEX],3      ; 0~CLEAR 1~BLACK 2~WHITE 3~X
         CALL DRAWPIC
 GET_KEY:
@@ -88,14 +86,110 @@ GET_KEY:
         CALL PARSEKEY
         JMP GET_KEY
 EXIT_:
-        mov ax,3
-        int 10h
-        mov ah,4ch
-        int 21h
+        MOV AX,3
+        INT 10H
+        MOV AH,4CH
+        INT 21H
 
+WIN PROC NEAR
+        MOV AX,3
+        INT 10H
+        MOV AH,4CH
+        INT 21H
+WIN ENDP
+
+
+JUDGE_WINNER PROC NEAR
+        PUSH SI
+        PUSH DI
+        PUSH BX
+        PUSH CX
+
+
+        MOV SI,0
+        MOV DI,0
+
+LOOP_JUDGE_WINNER:
+        MOV BX,DI
+        MOV CL,4
+        SHL BX,CL
+        ADD BX,SI
+        MOV AL,[BX+BOARD]
+        MOV AH,0
+        CMP AX,[CUR_PLAYER]
+        JNE CONTINUE_1
+        
+
+        CMP SI,11
+        JG SI_G_11
+        PUSH SI
+        MOV SI,0
+LOOP_CHECK1:
+        CMP AL,[BX+SI+BOARD]
+        JNE CHECK_1_FAIL
+        INC SI
+        CMP SI,5
+        JL LOOP_CHECK1
+        MOV AL,1               ;SUCCESS
+        POP SI
+        JMP RET_1
+CHECK_1_FAIL:
+        POP SI
+
+        CMP DI,11
+        JG CONTINUE_1
+        PUSH DI
+        MOV DI,0
+LOOP_CHECK3:
+        CMP AL,[BX+DI+BOARD]
+        JNE CHECK_3_FAIL
+        ADD DI,17
+        CMP DI,85
+        JL LOOP_CHECK3
+        MOV AL,1               ;SUCCESS
+        POP DI
+        JMP RET_1
+CHECK_3_FAIL:
+        POP DI
+
+
+SI_G_11:
+        CMP DI,11
+        JG CONTINUE_1
+        PUSH DI
+        MOV DI,0
+LOOP_CHECK2:
+        CMP AL,[BX+DI+BOARD]
+        JNE CHECK_2_FAIL
+        ADD DI,16
+        CMP DI,80
+        JL LOOP_CHECK2
+        MOV AL,1               ;SUCCESS
+        POP DI
+        JMP RET_1
+CHECK_2_FAIL:
+        POP DI
+        
+CONTINUE_1:
+        INC SI
+        CMP SI,16
+        JL LOOP_JUDGE_WINNER
+        MOV SI,0
+        INC DI
+        CMP DI,16
+        JL LOOP_JUDGE_WINNER
+        MOV AL,0
+RET_1:
+        POP CX
+        POP BX
+        POP DI
+        POP SI
+        RET
+JUDGE_WINNER ENDP
 
 PARSEKEY PROC NEAR
         PUSH BX
+        PUSH CX
         CMP AL,'S'
         JE KEY_S
         CMP AL,'s'
@@ -112,12 +206,12 @@ PARSEKEY PROC NEAR
         JE KEY_D
         CMP AL,'d'
         JE KEY_D
-        CMP AL,’ ‘
-        JE KEY_SPACE
-        JMP RET_
+        CMP AL,' '
+        JE LABEL_JMP_1
+        JMP ILLEGAL
 
-        
-
+LABEL_JMP_1:
+        JMP KEY_SPACE
 KEY_S:
         CALL GET_PIC_INDEX
         CALL DRAWPIC
@@ -168,42 +262,54 @@ EDGE_L4:
 
 KEY_SPACE:
         MOV BX,[LOCX]
-        SHL BX,1
-        SHL BX,1
-        SHL BX,1
-        SHL BX,1
+        MOV CL,4
+        SHL BX,CL
         ADD BX,[LOCY]
         CMP [BX+BOARD],0
-        JNE RET_
+        JNE ILLEGAL
         MOV AX,[CUR_PLAYER]
-        MOV [BX+BOARD],AX
+        MOV BYTE PTR [BX+BOARD],AL
         MOV [PIC_INDEX],AX
         CALL DRAWPIC
         CALL JUDGE_WINNER
+        CMP AL,1
+        JNE NOT_WIN
+        CALL WIN
+
+NOT_WIN:
+        CALL CHANGE_PLAYER
+        JMP RET_
+ILLEGAL:
+
 RET_:
+        POP CX
         POP BX
         RET
 PARSEKEY ENDP
 
-JUDGE_WINNER PROC NEAR
-
-
+CHANGE_PLAYER PROC NEAR
+        CMP [CUR_PLAYER],1
+        JE LABEL_PLAYER2
+        MOV [CUR_PLAYER],1
         RET
-JUDGE_WINNER ENDP
-
+LABEL_PLAYER2:
+        MOV [CUR_PLAYER],2
+        RET
+CHANGE_PLAYER ENDP
 
 
 GET_PIC_INDEX PROC NEAR
         PUSH AX
         PUSH BX
+        PUSH CX
         MOV BX,[LOCX]
-        SHL BX,1
-        SHL BX,1
-        SHL BX,1
-        SHL BX,1
+        MOV CL,4
+        SHL BX,CL
         ADD BX,[LOCY]
-        MOV AX,[BX+BOARD]
+        MOV AL,[BX+BOARD]
+        MOV AH,0
         MOV [PIC_INDEX],AX
+        POP CX
         POP BX
         POP AX
         RET
@@ -228,11 +334,8 @@ DRAWPIC PROC NEAR
         MOV DI,0
 LOOP_L:
         MOV BX,SI
-        SHL BX,1
-        SHL BX,1
-        SHL BX,1
-        SHL BX,1
-
+        MOV CL,4
+        SHL BX,CL
         ADD BX,DI
 
         MOV CX,[POSY]
