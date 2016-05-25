@@ -94,6 +94,9 @@ START:
         MOV AL,52
         OUT DX,AL
 
+        CALL CHECK_CONNECT
+        
+
         MOV AX,12H
         INT 10H
         CALL DRAWBOARD
@@ -134,6 +137,16 @@ WIN PROC NEAR
         MOV AH,4CH
         INT 21H
 WIN ENDP
+
+CHECK_CONNECT PROC NEAR
+        PUSH AX
+        PUSH DX
+
+RET_2:
+        POP DX
+        POP AX
+        RET
+CHECK_CONNECT ENDP
 
 CHECK_IN_READY PROC NEAR
         PUSH AX
