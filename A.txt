@@ -64,6 +64,7 @@ LOCY DW 0
 
 PIC_INDEX DW 0
 CUR_PLAYER DW 1
+CPT_PLAYER DW 1
 
 DATA ENDS
 
@@ -73,16 +74,52 @@ ASSUME  CS:CODE,DS:DATA
 START:
         MOV AX,DATA
         MOV DS,AX
+        MOV DX,0E4B9H
+        MOV AL,0
+        OUT DX,AL
+        OUT DX,AL
+        OUT DX,AL
+        MOV AL,40H
+        OUT DX,AL
+        MOV AL,4EH
+        OUT DX,AL
+        MOV AL,27H
+        OUT DX,AL
+
+        MOV DX,0E483H
+        MOV AL,00010100B
+        OUT DX,AL
+
+        MOV DX,0E480H
+        MOV AL,52
+        OUT DX,AL
+
         MOV AX,12H
         INT 10H
         CALL DRAWBOARD
         MOV [PIC_INDEX],3      ; 0~CLEAR 1~BLACK 2~WHITE 3~X
         CALL DRAWPIC
 GET_KEY:
+        MOV AX,[CUR_PLAYER]
+        CMP AX,[CPT_PLAYER]
+        JNE WAIT_8251
         MOV AH,7
         INT 21H
+
+        CALL CHECK_OUT_READY
+        MOV DX,0E4B8H
+        OUT DX,AL
+
         CMP AL,1BH
         JE EXIT_
+        CALL PARSEKEY
+        JMP GET_KEY
+
+WAIT_8251:
+        CALL CHECK_IN_READY
+        MOV DX,0E4B8H
+        IN AL,DX
+
         CALL PARSEKEY
         JMP GET_KEY
 EXIT_:
@@ -98,6 +135,35 @@ WIN PROC NEAR
         INT 21H
 WIN ENDP
 
+CHECK_IN_READY PROC NEAR
+        PUSH AX
+        PUSH DX
+        MOV DX,0E4B9H
+LOOP_I_NOT_READY:
+        IN AL,DX
+        AND AL,2
+        CMP AL,2
+        JNE LOOP_I_NOT_READY
+        POP DX
+        POP AX
+        RET
+CHECK_IN_READY ENDP
+
+
+CHECK_OUT_READY PROC NEAR
+        PUSH AX
+        PUSH DX
+        MOV DX,0E4B9H
+
+LOOP_O_NOT_READY:
+        IN AL,DX
+        AND AL,1
+        CMP AL,1
+        JNE LOOP_O_NOT_READY
+        POP DX
+        POP AX
+        RET
+CHECK_OUT_READY ENDP
 
 JUDGE_WINNER PROC NEAR
         PUSH SI
