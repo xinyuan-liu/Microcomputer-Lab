@@ -15,12 +15,15 @@ STR_6 DB 'Requesting for handshake 1',0AH,0DH,'$'
 STR_7 DB 'Success...',0AH,0DH,'$'
 
 BUFFER DB 256 DUP(0)
-
+ERROR_MSG DB 'ERROR!$'
 FILE_PATH DB 256 DUP(0)
-FILE_HANDLE DW 0
-SIZE DW 0
 
-DATA ENDS
+FILE_HANDLE DW 0
+SIZE_ DB 0
+TMP DB 0
+MODE DB 0
+
+DATA ENDS             
 
 CODE SEGMENT 
 ASSUME  CS:CODE,DS:DATA
@@ -45,35 +48,185 @@ START:
         OUT DX,AL
 
         MOV DX,0E480H
-        MOV AL,52
+        MOV AL,52         
         OUT DX,AL
 
-        ;CALL CHECK_CONNECT
+        CALL PARSE_ARG
+        CMP [MODE],'S'
+        JE MODE_S
+        CMP [MODE],'r'
+        JE MODE_S
 
-        MOV AH,3DH
-        LEA DX,PATH_NAME
-        MOV AL,0
-        INT 21H			;OPEN
+        CMP [MODE],'R'
+        JE MODE_R
+        CMP [MODE],'r'
+        JE MODE_R
+        JMP ERROR
+
+MODE_R:
+
+        CALL CREATE_FILE
+LABEL_2:
+        CALL RECEIVE
+        CALL WRITE_FILE
+        CMP [SIZE_],128
+        JE LABEL_2
+
+        JMP EXIT_
+MODE_S:
+        CALL OPEN_FILE
+
+LABEL_1:
+        CALL READ_FILE
+        CALL SEND
+
+        CMP [SIZE_],128
+        JE LABEL_1
+
+EXIT_:
+        MOV AH,4CH
+        INT 21H
+
+ERROR:
+        MOV DX,OFFSET ERROR_MSG
+        MOV AH,09H
+        INT 21H
+
+        MOV AH,4CH
+        INT 21H
+
+RECEIVE PROC NEAR
+        CALL CHECK_IN_READY
+        MOV DX,0E4B8H
+        IN AL,DX
+        MOV [SIZE_],AL
+
+        MOV BX,0
+LOOP_RECEIVE:
+        CALL CHECK_IN_READY
+        MOV DX,0E4B8H
+        IN AL,DX
+        MOV [BUFFER+BX],AL
+        INC BX
+        CMP BL,[SIZE_]
+        JL LOOP_RECEIVE
+
+        MOV [BUFFER+BX],'$'
+        MOV DX,OFFSET BUFFER
+        MOV AH,09H
+        INT 21H
+
+
+        RET
+RECEIVE ENDP
+
+WRITE_FILE PROC NEAR
+        MOV AH,40H
+        LEA DX,BUFFER
+        MOV CL,[SIZE_]  ;128
+        MOV CH,0
+        MOV BX,[FILE_HANDLE]
+        INT 21H
+        JC ERROR
+        RET
+
+WRITE_FILE ENDP
+
+CREATE_FILE PROC NEAR
+
+        MOV AH,3CH
+        LEA DX,FILE_PATH
+        MOV CX,00
+        INT 21H
         JC ERROR
         MOV [FILE_HANDLE],AX
+        RET
+CREATE_FILE ENDP
+
+SEND PROC NEAR
+        MOV BL,[SIZE_]
+        MOV BH,0
+        MOV [BUFFER+BX],'$'
+        MOV DX,OFFSET BUFFER
+        MOV AH,09H
+        INT 21H
+
+        CALL CHECK_OUT_READY
+        MOV DX,0E4B8H
+        MOV AL,[SIZE_]
+        OUT DX,AL
+
+        MOV BX,0
+LOOP_SEND:
+        CALL CHECK_OUT_READY
+        MOV DX,0E4B8H
+        MOV AL,[BUFFER+BX]
+        OUT DX,AL
+        INC BX
+        CMP BL,[SIZE_]
+        JL LOOP_SEND
+
+        RET
+
+
+SEND ENDP
+
+PARSE_ARG PROC NEAR
+       
+        MOV CL,ES:[80H]
+        CMP CL,0
+        JE ERROR
+        SUB CL,3
+
+        MOV BX,82H
+        MOV AL,ES:[BX]
+        MOV [MODE],AL
+        INC BX
+        CMP BYTE PTR ES:[BX],' '
+        JNE ERROR
+LOOP_PARSE1:
+        INC BX
+        CMP BYTE PTR ES:[BX],' '
+        JE LOOP_PARSE1
+        MOV SI,0
+LOOP_PARSE2:
+        MOV AL,ES:[BX+SI]
+        CMP AL,' '
+        JE PARSE_END
+        MOV [FILE_PATH+SI],AL
+        INC SI
+        MOV CH,0
+        CMP SI,CX
+        JE PARSE_END
+        JMP LOOP_PARSE2
+
+PARSE_END:
+        MOV [FILE_PATH+SI],'$'
+        RET
+PARSE_ARG ENDP
+
+READ_FILE PROC NEAR
         MOV AH,3FH
         LEA DX,BUFFER
         MOV CX,128
         MOV BX,[FILE_HANDLE]
         INT 21H
+        JC JUMPBOARD
+        MOV [SIZE_],AL
+        RET
+JUMPBOARD:
+        JMP ERROR
+READ_FILE ENDP
+
+OPEN_FILE PROC NEAR
+        MOV AH,3DH
+        MOV DX,OFFSET FILE_PATH
+        MOV AL,0
+        INT 21H			;OPEN
         JC ERROR
-        MOV [SIZE],AX
-        MOV BX,AX
-        MOV [BUFFER+BX],’$’
-        LEA DX,BUFFER
-        MOV AH,09H
-        INT 21H
-
-ERROR:
-        
-
-        MOV AH,4CH
-        INT 21H
+        MOV [FILE_HANDLE],AX
+        RET
+OPEN_FILE ENDP
 
 CHECK_CONNECT PROC NEAR
         PUSH AX
@@ -221,3 +374,4 @@ CHECK_OUT_READY ENDP
 
 CODE ENDS 
 END START
+        

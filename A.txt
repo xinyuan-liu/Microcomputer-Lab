@@ -106,7 +106,7 @@ START:
         MOV AL,52
         OUT DX,AL
 
-        CALL CHECK_CONNECT
+        ;CALL CHECK_CONNECT
 
         MOV AX,12H
         INT 10H
@@ -116,7 +116,7 @@ START:
 GET_KEY:
         MOV AX,[CUR_PLAYER]
         CMP AX,[CPT_PLAYER]
-        JNE WAIT_8251
+        ;JNE WAIT_8251
 
         MOV AH,0CH
         MOV AL,7
