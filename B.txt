@@ -1,0 +1,223 @@
+DATA SEGMENT
+ 
+
+HS_1_S DB 0
+HS_1_R DB 0
+HS_2_S DB 0
+HS_2_R DB 0
+
+STR_1 DB 'Connecting...',0AH,0DH,'$'
+STR_2 DB 'Handshake 1 send',0AH,0DH,'$'
+STR_3 DB 'Handshake 1 receive',0AH,0DH,'$'
+STR_4 DB 'Handshake 2 send',0AH,0DH,'$'
+STR_5 DB 'Handshake 2 receive',0AH,0DH,'$'
+STR_6 DB 'Requesting for handshake 1',0AH,0DH,'$'
+STR_7 DB 'Success...',0AH,0DH,'$'
+
+BUFFER DB 256 DUP(0)
+
+FILE_PATH DB 256 DUP(0)
+FILE_HANDLE DW 0
+SIZE DW 0
+
+DATA ENDS
+
+CODE SEGMENT 
+ASSUME  CS:CODE,DS:DATA
+
+START:
+        MOV AX,DATA
+        MOV DS,AX
+        MOV DX,0E4B9H
+        MOV AL,0
+        OUT DX,AL
+        OUT DX,AL
+        OUT DX,AL
+        MOV AL,40H
+        OUT DX,AL
+        MOV AL,4EH
+        OUT DX,AL
+        MOV AL,27H
+        OUT DX,AL
+
+        MOV DX,0E483H
+        MOV AL,00010100B
+        OUT DX,AL
+
+        MOV DX,0E480H
+        MOV AL,52
+        OUT DX,AL
+
+        ;CALL CHECK_CONNECT
+
+        MOV AH,3DH
+        LEA DX,PATH_NAME
+        MOV AL,0
+        INT 21H			;OPEN
+        JC ERROR
+        MOV [FILE_HANDLE],AX
+        MOV AH,3FH
+        LEA DX,BUFFER
+        MOV CX,128
+        MOV BX,[FILE_HANDLE]
+        INT 21H
+        JC ERROR
+        MOV [SIZE],AX
+        MOV BX,AX
+        MOV [BUFFER+BX],’$’
+        LEA DX,BUFFER
+        MOV AH,09H
+        INT 21H
+
+ERROR:
+        
+
+        MOV AH,4CH
+        INT 21H
+
+CHECK_CONNECT PROC NEAR
+        PUSH AX
+        PUSH DX
+        PUSH CX
+        MOV DX,OFFSET STR_1
+        MOV AH,09H
+        INT 21H
+CHKCON:
+        CMP [HS_1_S],1
+        JE LABEL_HS1
+        MOV DX,0E4B9H
+        IN AL,DX
+        AND AL,1
+        CMP AL,1
+        JNE LABEL_HS1
+        MOV AL,1
+        MOV DX,0E4B8H
+        OUT DX,AL
+        MOV [HS_1_S],1
+        MOV DX,OFFSET STR_2
+        MOV AH,09H
+        INT 21H
+
+LABEL_HS1:
+        CMP [HS_1_R],1
+        JNE LABEL_HS2
+        CMP [HS_2_S],1
+        JE LABEL_HS2
+        MOV DX,0E4B9H
+        IN AL,DX
+        AND AL,1
+        CMP AL,1
+        JNE LABEL_HS2
+        MOV AL,2
+        MOV DX,0E4B8H
+        OUT DX,AL
+        MOV [HS_2_S],1
+        MOV DX,OFFSET STR_4
+        MOV AH,09H
+        INT 21H
+
+LABEL_HS2:
+        MOV DX,0E4B9H
+        IN AL,DX
+        AND AL,2
+        CMP AL,2
+        JNE LABEL_HS3
+        MOV DX,0E4B8H
+        IN AL,DX
+        CMP AL,1
+        JNE LABEL_HS4
+        MOV [HS_1_R],1
+        MOV DX,OFFSET STR_3
+        MOV AH,09H
+        INT 21H
+
+        JMP LABEL_HS3
+LABEL_HS4:
+        CMP AL,2
+        JNE LABEL_HS5
+        MOV [HS_2_R],1
+        MOV DX,OFFSET STR_5
+        MOV AH,09H
+        INT 21H
+
+        MOV DX,OFFSET STR_6
+        MOV AH,09H
+        INT 21H
+
+        MOV AL,3
+        MOV DX,0E4B8H
+        OUT DX,AL
+        JMP LABEL_HS3
+
+LABEL_HS5:
+        CMP AL,3
+        JNE LABEL_HS3
+        MOV DX,OFFSET STR_2
+        MOV AH,09H
+        INT 21H
+
+        MOV AL,1
+        MOV DX,0E4B8H
+        OUT DX,AL
+
+LABEL_HS3:
+        MOV AH,01H
+        INT 16H
+        JNZ EXIT_2
+        MOV AL,[HS_2_S]
+        AND AL,[HS_2_R]
+        JNZ RET_2
+        JMP CHKCON
+RET_2:
+
+        MOV DX,OFFSET STR_7
+        MOV AH,09H
+        INT 21H
+        MOV DX,4240H
+        MOV CX,0FH
+        MOV AH,86H
+        INT 15H
+        POP CX
+        POP DX
+        POP AX
+        RET
+EXIT_2:
+
+        MOV AH,4CH
+        INT 21H
+
+CHECK_CONNECT ENDP
+
+CHECK_IN_READY PROC NEAR
+        PUSH AX
+        PUSH DX
+        MOV DX,0E4B9H
+LOOP_I_NOT_READY:
+        IN AL,DX
+        AND AL,2
+        CMP AL,2
+        JNE LOOP_I_NOT_READY
+        POP DX
+        POP AX
+        RET
+CHECK_IN_READY ENDP
+
+
+CHECK_OUT_READY PROC NEAR
+        PUSH AX
+        PUSH DX
+        MOV DX,0E4B9H
+
+LOOP_O_NOT_READY:
+        IN AL,DX
+        AND AL,1
+        CMP AL,1
+        JNE LOOP_O_NOT_READY
+        POP DX
+        POP AX
+        RET
+CHECK_OUT_READY ENDP
+
+
+CODE ENDS 
+END START
