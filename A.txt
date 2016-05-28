@@ -77,7 +77,7 @@ LOCY DW 0
 PIC_INDEX DW 0
 CUR_PLAYER DW 1
 CPT_PLAYER DW 2
-
+WINNER DW 0
 DATA ENDS
 
 CODE SEGMENT 
@@ -106,7 +106,7 @@ START:
         MOV AL,52
         OUT DX,AL
 
-        CALL CHECK_CONNECT
+        ;CALL CHECK_CONNECT
 
         MOV AX,12H
         INT 10H
@@ -116,7 +116,7 @@ START:
 GET_KEY:
         MOV AX,[CUR_PLAYER]
         CMP AX,[CPT_PLAYER]
-        JNE WAIT_8251
+        ;JNE WAIT_8251
 
         CALL GET_KEYBOARD
         CMP AL,0
@@ -173,12 +173,12 @@ TIMER PROC NEAR
         RET
 TIMER ENDP
 
-WIN PROC NEAR
+END_GAME PROC NEAR
         MOV AX,3
         INT 10H
         MOV AH,4CH
         INT 21H
-WIN ENDP
+END_GAME ENDP
 
 GET_KEYBOARD PROC NEAR
         PUSH DX
@@ -360,7 +360,28 @@ LOOP_JUDGE_WINNER:
         MOV AH,0
         CMP AX,[CUR_PLAYER]
         JNE CONTINUE_1
-        
+
+        ;JMP DI_L_4
+        CMP SI,4
+        JL SI_L_4
+        CMP DI,11
+        JG SI_L_4
+        PUSH SI
+        MOV SI,0
+LOOP_CHECK5:
+        CMP AL,[BX+SI+BOARD]
+        JNE CHECK_5_FAIL
+        ADD SI,15
+        CMP SI,75
+        JL LOOP_CHECK5
+        MOV AL,1               ;SUCCESS
+        POP SI
+        JMP RET_1
+CHECK_5_FAIL:
+        POP SI
+
+SI_L_4:
+
 
         CMP SI,11
         JG SI_G_11
@@ -377,6 +398,8 @@ LOOP_CHECK1:
         JMP RET_1
 CHECK_1_FAIL:
         POP SI
+        
+
 
         CMP DI,11
         JG CONTINUE_1
@@ -415,11 +438,11 @@ CHECK_2_FAIL:
 CONTINUE_1:
         INC SI
         CMP SI,16
-        JL LOOP_JUDGE_WINNER
+        JL JUMP_BOARD_LOOP_JUDGE_WINNER
         MOV SI,0
         INC DI
         CMP DI,16
-        JL LOOP_JUDGE_WINNER
+        JL JUMP_BOARD_LOOP_JUDGE_WINNER
         MOV AL,0
 RET_1:
         POP CX
@@ -427,6 +450,8 @@ RET_1:
         POP DI
         POP SI
         RET
+JUMP_BOARD_LOOP_JUDGE_WINNER:
+        JMP LOOP_JUDGE_WINNER
 JUDGE_WINNER ENDP
 
 PARSEKEY PROC NEAR
@@ -516,7 +541,9 @@ KEY_SPACE:
         CALL JUDGE_WINNER
         CMP AL,1
         JNE NOT_WIN
-        CALL WIN
+        MOV AX,[CUR_PLAYER]
+        MOV [WINNER],AX
+        CALL END_GAME
 
 NOT_WIN:
         CALL CHANGE_PLAYER
