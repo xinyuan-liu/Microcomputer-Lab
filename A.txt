@@ -74,11 +74,20 @@ POSY DW 0
 LOCX DW 0
 LOCY DW 0
 
+MUSIC_ON DB 1
+MUSIC_START DB 0
+MUSIC_PTR DW 0
+BUFFER DB 256 DUP(0)
+
+FILE_PATH DB ‘MUSIC1.WAV’,’$’,00
+FILE_HANDLE DW 0
+
 PIC_INDEX DW 0
 CUR_PLAYER DW 1
 CPT_PLAYER DW 2
 WINNER DW 0
 DATA ENDS
+
 
 CODE SEGMENT 
 ASSUME  CS:CODE,DS:DATA
@@ -104,6 +113,10 @@ START:
 
         MOV DX,0E480H
         MOV AL,52
+        OUT DX,AL
+
+        MOV DX,0E48BH
+        MOV AL,10010000B
         OUT DX,AL
 
         ;CALL CHECK_CONNECT
@@ -164,7 +177,80 @@ EXIT_:
         MOV AH,4CH
         INT 21H
 
+GET_SAMPLE PROC NEAR
+        MOV BX,[MUSIC_PTR]
+        INC [MUSIC_PTR]
+        MOV AL,[BUFFER+BX]
+        PUSH AX
+        INC BX
+        CMP BX,[SIZE_]
+        JNE GET_SAMPLE_RET
+        CMP BX,128
+        JNE FILE_END
+        CALL READ_FILE
+        CMP [SIZE_],0
+        JE FILE_END
+        JMP GET_SAMPLE_RET
+FILE_END:
+        MOV AH,42H
+        MOV BX,[FILE_HANDLE]
+        MOV CX,0
+        MOV DX,44
+        MOV AL,0
+        INT 21H
+        CALL READ_FILE
+GET_SAMPLE_RET
+        POP AX
+        RET
+GET_SAMPLE ENDP
+
 AUDIO_OUTPUT PROC NEAR
+        CMP [MUSIC_ON],1
+        JNE AUDIO_RET
+        CMP [MUSIC_START],1
+        JNE START_MUSIC
+        MOV DX,0E488H
+        IN AL,DX
+        AND AL,1
+        CMP AL,1
+        JNE AUDIO_RET
+        
+PLAY_MUSIC:
+        CALL GET_SAMPLE
+        MOV DX,0E490H
+        OUT DX,AL
+
+        MOV DX,0E483H
+        MOV AL,01010000B
+        OUT DX,AL
+        
+        MOV DX,0E481H
+        
+        MOV AL,125
+        OUT DX,AL
+
+        JMP AUDIO_RET
+START_MUSIC:
+
+        MOV AH,3DH
+        MOV DX,OFFSET FILE_PATH
+        MOV AL,0
+        INT 21H			
+        JC ERROR
+        MOV [FILE_HANDLE],AX    ;OPEN FILE
+
+        MOV AH,3FH
+        LEA DX,BUFFER
+        MOV CX,44
+        MOV BX,[FILE_HANDLE]
+        INT 21H
+        JC ERROR
+        
+
+        MOV [MUSIC_PTR],0
+        JMP PLAY_MUSIC
+        
+AUDIO_RET:
         RET
 AUDIO_OUTPUT ENDP
 
@@ -173,12 +259,27 @@ TIMER PROC NEAR
         RET
 TIMER ENDP
 
+READ_FILE PROC NEAR
+        MOV AH,3FH
+        LEA DX,BUFFER
+        MOV CX,128
+        MOV BX,[FILE_HANDLE]
+        INT 21H
+        JC ERROR
+        MOV [SIZE_],AL
+        MOV [MUSIC_PTR],0
+        RET
+ERROR:
+READ_FILE ENDP
+
 END_GAME PROC NEAR
         MOV AX,3
         INT 10H
         MOV AH,4CH
         INT 21H
 END_GAME ENDP
+
+
 
 GET_KEYBOARD PROC NEAR
         PUSH DX
