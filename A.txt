@@ -38,17 +38,17 @@ CIRW DB 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 
 PICX DB 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
      DB 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
-     DB 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
-     DB 0,0,0,1,0,0,0,0,0,0,0,0,1,0,0,0
-     DB 0,0,0,0,1,0,0,0,0,0,0,1,0,0,0,0
-     DB 0,0,0,0,0,1,0,0,0,0,1,0,0,0,0,0
-     DB 0,0,0,0,0,0,1,0,0,1,0,0,0,0,0,0
-     DB 0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0
-     DB 0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0
-     DB 0,0,0,0,0,0,1,0,0,1,0,0,0,0,0,0
-     DB 0,0,0,0,0,1,0,0,0,0,1,0,0,0,0,0
-     DB 0,0,0,0,1,0,0,0,0,0,0,1,0,0,0,0
-     DB 0,0,0,1,0,0,0,0,0,0,0,0,1,0,0,0
+     DB 0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0
+     DB 0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0
+     DB 0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0
+     DB 0,0,0,0,0,1,0,0,0,1,0,0,0,0,0,0
+     DB 0,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0
+     DB 0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0
+     DB 0,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0
+     DB 0,0,0,0,0,1,0,0,0,1,0,0,0,0,0,0
+     DB 0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0
+     DB 0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0
+     DB 0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0
      DB 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
      DB 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
      DB 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
@@ -122,9 +122,9 @@ GET_KEY:
         MOV AL,7
         INT 21H
 
-        CALL CHECK_OUT_READY
-        MOV DX,0E4B8H
-        OUT DX,AL
+        ;CALL CHECK_OUT_READY
+        ;MOV DX,0E4B8H
+        ;OUT DX,AL
 
         CMP AL,1BH
         JE EXIT_
@@ -513,8 +513,6 @@ GET_PIC_INDEX PROC NEAR
 GET_PIC_INDEX ENDP
 
 
-
-
 DRAWPIC PROC NEAR
         PUSH BX
         PUSH CX
@@ -540,8 +538,11 @@ LOOP_L:
         MOV DX,[POSX]
         ADD DX,SI
 
+
         CMP [PIC_INDEX],0
         JNE PIC_N0
+
+
         MOV AL,0
         JMP PIC_DONE
 PIC_N0:
@@ -552,11 +553,13 @@ PIC_N0:
 PIC_N1:
         CMP [PIC_INDEX],2
         JNE PIC_N2
+
         MOV AL,[BX+CIRW]
         JMP PIC_DONE
 PIC_N2:
         CMP [PIC_INDEX],3
         JNE PIC_N3
+
         MOV AL,[BX+PICX]
         JMP PIC_DONE
 PIC_N3:
@@ -577,7 +580,88 @@ EQZ_0:
         JE EQ16_1
 LT16_1:
         JMP LOOP_L
+JUMP_BOARD_RET_DRAWPIC:
+        JMP RET_DRAWPIC
 EQ16_1:
+        CMP [PIC_INDEX],1
+        JE JUMP_BOARD_RET_DRAWPIC
+        CMP [LOCX],0
+        JE LLL1
+        MOV DX,[POSX]
+        ADD DX,7
+        MOV CX,[POSY]
+        ADD CX,7
+        MOV SI,0
+
+LL1:
+        MOV AL,0FH
+        MOV AH,0CH
+        INT 10H
+        INC SI
+        DEC DX
+        CMP SI,10
+        JL LL1
+
+LLL1:
+        CMP [LOCY],0
+        JE LLL2
+
+        MOV DX,[POSX]
+        ADD DX,7
+        MOV CX,[POSY]
+        ADD CX,7
+        MOV SI,0
+
+LL2:
+        MOV AL,0FH
+        MOV AH,0CH
+        INT 10H
+        INC SI
+        DEC CX
+        CMP SI,10
+        JL LL2
+
+LLL2:
+        CMP [LOCX],15
+        JE LLL3
+
+        MOV DX,[POSX]
+        ADD DX,7
+        MOV CX,[POSY]
+        ADD CX,7
+        MOV SI,0
+
+LL3:
+        MOV AL,0FH
+        MOV AH,0CH
+        INT 10H
+        INC SI
+        INC DX
+        CMP SI,10
+        JL LL3
+LLL3:
+        CMP [LOCY],15
+        JE LLL4
+
+        MOV DX,[POSX]
+        ADD DX,7
+        MOV CX,[POSY]
+        ADD CX,7
+        MOV SI,0
+
+LL4:
+        MOV AL,0FH
+        MOV AH,0CH
+        INT 10H
+        INC SI
+        INC CX
+        CMP SI,10
+        JL LL4
+
+LLL4:
+
+
+RET_DRAWPIC:
         POP DI
         POP SI
         POP DX
@@ -615,34 +699,34 @@ DRAWBOARD PROC NEAR
         PUSH SI
         PUSH DI
         MOV BH,0
-        MOV DX,50     ;0-479
-        MOV CX,50     ;0-639
+        MOV DX,60     ;0-479
+        MOV CX,60     ;0-639
 LOOP_1L:
-        MOV CX,50
+        MOV CX,60
 LOOP_1R:
         MOV AL,0FH
         MOV AH,0CH
         INT 10H
         ADD CX,1
-        CMP CX,387
+        CMP CX,376
         JL LOOP_1R
         ADD DX,21
-        CMP DX,387
+        CMP DX,376
         JL LOOP_1L
 
-        MOV DX,50     ;0-479
-        MOV CX,50     ;0-639
+        MOV DX,60     ;0-479
+        MOV CX,60     ;0-639
 LOOP_2L:
-        MOV DX,50
+        MOV DX,60
 LOOP_2R:
         MOV AL,0FH
         MOV AH,0CH
         INT 10H
         ADD DX,1
-        CMP DX,387
+        CMP DX,376
         JL LOOP_2R
         ADD CX,21
-        CMP CX,387
+        CMP CX,376
         JL LOOP_2L
         
         POP DI
