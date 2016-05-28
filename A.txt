@@ -106,7 +106,7 @@ START:
         MOV AL,52
         OUT DX,AL
 
-        ;CALL CHECK_CONNECT
+        CALL CHECK_CONNECT
 
         MOV AX,12H
         INT 10H
@@ -116,23 +116,37 @@ START:
 GET_KEY:
         MOV AX,[CUR_PLAYER]
         CMP AX,[CPT_PLAYER]
-        ;JNE WAIT_8251
+        JNE WAIT_8251
 
-        MOV AH,0CH
-        MOV AL,7
-        INT 21H
+        CALL GET_KEYBOARD
+        CMP AL,0
+        JE NO_KEY_HIT
 
-        ;CALL CHECK_OUT_READY
-        ;MOV DX,0E4B8H
-        ;OUT DX,AL
+        CALL CHECK_OUT_READY
+        MOV DX,0E4B8H
+        OUT DX,AL
 
         CMP AL,1BH
         JE EXIT_
+
         CALL PARSEKEY
+
+NO_KEY_HIT:
+
+        CALL AUDIO_OUTPUT
+        CALL TIMER
+
         JMP GET_KEY
 
 WAIT_8251:
-        CALL CHECK_IN_READY
+
+        MOV DX,0E4B9H   ;CHECK INPUT READY-NONBLOCK
+        IN AL,DX
+        AND AL,2
+
+        CMP AL,2
+        JNE NO_KEY_RECEIVE
+
         MOV DX,0E4B8H
         IN AL,DX
 
@@ -140,6 +154,9 @@ WAIT_8251:
         JE EXIT_
 
         CALL PARSEKEY
+NO_KEY_RECEIVE:
+        CALL AUDIO_OUTPUT
+        ;CALL TIMER
         JMP GET_KEY
 EXIT_:
         MOV AX,3
@@ -147,12 +164,38 @@ EXIT_:
         MOV AH,4CH
         INT 21H
 
+AUDIO_OUTPUT PROC NEAR
+        RET
+AUDIO_OUTPUT ENDP
+
+TIMER PROC NEAR
+
+        RET
+TIMER ENDP
+
 WIN PROC NEAR
         MOV AX,3
         INT 10H
         MOV AH,4CH
         INT 21H
 WIN ENDP
+
+GET_KEYBOARD PROC NEAR
+        PUSH DX
+        MOV DL,0
+        MOV AH,01H
+        INT 16H
+        JZ GK_RET
+        MOV DL,AL
+        MOV AH,0CH
+        MOV AL,0BH
+        INT 21H
+GK_RET:
+        MOV AL,DL
+        POP DX
+        RET
+GET_KEYBOARD ENDP
+
 
 CHECK_CONNECT PROC NEAR
         PUSH AX
@@ -267,6 +310,8 @@ EXIT_2:
         INT 21H
 
 CHECK_CONNECT ENDP
+
+
 
 CHECK_IN_READY PROC NEAR
         PUSH AX
