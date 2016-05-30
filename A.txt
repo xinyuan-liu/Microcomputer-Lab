@@ -60,6 +60,7 @@ HS_1_R DB 0
 HS_2_S DB 0
 HS_2_R DB 0
 
+
 STR_1 DB 'Connecting...',0AH,0DH,'$'
 STR_2 DB 'Handshake 1 send',0AH,0DH,'$'
 STR_3 DB 'Handshake 1 receive',0AH,0DH,'$'
@@ -85,9 +86,13 @@ SIZE_ DB 0
 
 PIC_INDEX DW 0
 CUR_PLAYER DW 1
-CPT_PLAYER DW 2
+CPT_PLAYER DW 1
 WINNER DW 0
+VOL DB 255
+
 DATA ENDS
+
+
 
 
 CODE SEGMENT 
@@ -120,7 +125,7 @@ START:
         MOV AL,10010000B
         OUT DX,AL
 
-        ;CALL CHECK_CONNECT
+        CALL CHECK_CONNECT
 
         MOV AX,12H
         INT 10H
@@ -130,7 +135,7 @@ START:
 GET_KEY:
         MOV AX,[CUR_PLAYER]
         CMP AX,[CPT_PLAYER]
-        ;JNE WAIT_8251
+        JNE WAIT_8251
 
         CALL GET_KEYBOARD
         CMP AL,0
@@ -170,7 +175,6 @@ WAIT_8251:
         CALL PARSEKEY
 NO_KEY_RECEIVE:
         CALL AUDIO_OUTPUT
-        ;CALL TIMER
         JMP GET_KEY
 EXIT_:
         MOV AX,3
@@ -218,6 +222,17 @@ AUDIO_OUTPUT PROC NEAR
         
 PLAY_MUSIC:
         CALL GET_SAMPLE
+
+        PUSH AX
+        MOV DX,0E498H
+        IN AL,DX
+        MOV BL,AL
+        POP AX
+        MOV [VOL],BL
+        MUL BL
+        MOV BL,255
+        DIV BL
+
         MOV DX,0E490H
         OUT DX,AL
 
@@ -230,8 +245,16 @@ PLAY_MUSIC:
         MOV AL,125
         OUT DX,AL
 
+        MOV DX,0E498H
+        OUT DX,AL
+
+
         JMP AUDIO_RET
 START_MUSIC:
+
+        MOV DX,0E498H
+        OUT DX,AL
+
 
         MOV AH,3DH
         MOV DX,OFFSET FILE_PATH
@@ -365,6 +388,9 @@ LABEL_HS4:
         MOV AH,09H
         INT 21H
 
+        CMP [HS_1_R],1
+        JE LABEL_HS3
+
         MOV DX,OFFSET STR_6
         MOV AH,09H
         INT 21H
@@ -372,7 +398,7 @@ LABEL_HS4:
         MOV AL,3
         MOV DX,0E4B8H
         OUT DX,AL
-        MOV [CPT_PLAYER],1
+        MOV [CPT_PLAYER],2
         JMP LABEL_HS3
 
 LABEL_HS5:
@@ -663,6 +689,11 @@ CHANGE_PLAYER PROC NEAR
         CMP [CUR_PLAYER],1
         JE LABEL_PLAYER2
         MOV [CUR_PLAYER],1
+
+        MOV AH,0CH
+        MOV AL,0BH
+        INT 21H
+
         RET
 LABEL_PLAYER2:
         MOV [CUR_PLAYER],2
