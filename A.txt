@@ -68,7 +68,9 @@ STR_4 DB 'Handshake 2 send',0AH,0DH,'$'
 STR_5 DB 'Handshake 2 receive',0AH,0DH,'$'
 STR_6 DB 'Requesting for handshake 1',0AH,0DH,'$'
 STR_7 DB 'Success...',0AH,0DH,'$'
-
+STR_WIN DB 'You WIN!','$'
+STR_LOSE DB 'You lose.','$'
+LED DB 3FH,06H,5BH,4FH,66H,6DH,7DH,07H,7FH,67H,77H,7CH,39H,5EH,79H,71H
 
 POSX DW 0
 POSY DW 0
@@ -87,8 +89,14 @@ SIZE_ DB 0
 PIC_INDEX DW 0
 CUR_PLAYER DW 1
 CPT_PLAYER DW 1
+
 WINNER DW 0
 VOL DB 255
+
+DIG_INDEX DB 1
+SEC_1 DB 0
+SEC_2 DB 0
+TIMER_CNT DB 0
 
 DATA ENDS
 
@@ -145,8 +153,6 @@ GET_KEY:
         MOV DX,0E4B8H
         OUT DX,AL
 
-        CMP AL,1BH
-        JE EXIT_
 
         CALL PARSEKEY
 
@@ -169,18 +175,151 @@ WAIT_8251:
         MOV DX,0E4B8H
         IN AL,DX
 
-        CMP AL,1BH
-        JE EXIT_
+        ;CMP AL,1BH
+        ;JE EXIT_
 
         CALL PARSEKEY
 NO_KEY_RECEIVE:
+        CALL TIMER
         CALL AUDIO_OUTPUT
         JMP GET_KEY
-EXIT_:
-        MOV AX,3
-        INT 10H
+        CALL EXIT_
+
+EXIT_ PROC NEAR
+
+NKHE:
+        ;MOV DL,0
+        ;MOV AH,01H
+        ;INT 16H
+        ;JNZ NKHE
+        MOV AH,0CH
+        MOV AL,07H
+        INT 21H
         MOV AH,4CH
         INT 21H
+EXIT_ ENDP
+
+ULOSE PROC NEAR
+        MOV AX,3
+        INT 10H
+
+        MOV DX,OFFSET STR_LOSE
+        MOV AH,09H
+        INT 21H
+
+        CALL EXIT_
+ULOSE ENDP
+
+UWIN PROC NEAR
+        MOV AX,3
+        INT 10H
+        MOV DX,OFFSET STR_WIN
+        MOV AH,09H
+        INT 21H
+
+        CALL EXIT_
+UWIN ENDP
+
+
+END_GAME PROC NEAR
+        MOV AX,[CUR_PLAYER]
+        CMP AX,[CPT_PLAYER]
+        JE LOSE_L
+        JMP WIN_L
+
+END_GAME ENDP
+
+WIN PROC NEAR
+        MOV AX,[CUR_PLAYER]
+        CMP AX,[CPT_PLAYER]
+        JE WIN_L
+        JMP LOSE_L
+WIN_L:
+        CALL UWIN
+LOSE_L:
+        CALL ULOSE
+WIN ENDP
+
+
+TIMER PROC NEAR
+
+        MOV DX,0E488H
+        IN AL,DX
+        AND AL,2
+        CMP AL,2
+        JNE TIMER_RET
+
+        MOV DX,0E483H
+        MOV AL,10110000B
+        OUT DX,AL
+        
+        MOV DX,0E482H
+        
+        MOV AL,0D4H
+        OUT DX,AL
+
+        MOV AL,030H
+        OUT DX,AL
+
+        MOV AX,[CUR_PLAYER]
+        CMP AX,[CPT_PLAYER]
+        JNE STOP_TIMING
+
+        INC [TIMER_CNT]
+        CMP [TIMER_CNT],80
+        JNE FLUSH
+        MOV [TIMER_CNT],0
+        INC [SEC_1]
+        CMP [SEC_1],10
+        JNE FLUSH
+        MOV [SEC_1],0
+        INC [SEC_2]
+        CMP [SEC_2],10
+        JE TIME_OUT
+
+FLUSH:
+        CMP [DIG_INDEX],1
+        JNE DIG_2
+        MOV [DIG_INDEX],2
+        MOV AL,1H
+        MOV DX,0E48AH
+        OUT DX,AL
+
+        MOV AL,[SEC_1]
+        MOV AH,0
+        MOV BX,OFFSET LED
+        XLAT
+        MOV DX,0E489H
+        OUT DX,AL
+        JMP TIMER_RET
+DIG_2:
+        MOV [DIG_INDEX],1
+        MOV AL,2H
+        MOV DX,0E48AH
+        OUT DX,AL
+
+        MOV AL,[SEC_2]
+        MOV AH,0
+        MOV BX,OFFSET LED
+        XLAT
+        MOV DX,0E489H
+        OUT DX,AL
+        
+TIMER_RET:
+        RET
+
+STOP_TIMING:
+        MOV [SEC_1],0
+        MOV [SEC_2],0
+        JMP FLUSH
+TIME_OUT:
+        CALL CHECK_OUT_READY
+        MOV DX,0E4B8H
+        MOV AL,1BH
+        OUT DX,AL
+
+        CALL END_GAME
+TIMER ENDP
 
 GET_SAMPLE PROC NEAR
         MOV BX,[MUSIC_PTR]
@@ -210,6 +349,12 @@ GET_SAMPLE_RET:
 GET_SAMPLE ENDP
 
 AUDIO_OUTPUT PROC NEAR
+        PUSH AX
+        PUSH BX
+        PUSH CX
+        PUSH DX
+        PUSH SI
+        PUSH DI
         CMP [MUSIC_ON],1
         JNE AUDIO_RET
         CMP [MUSIC_START],1
@@ -221,6 +366,17 @@ AUDIO_OUTPUT PROC NEAR
         JNE AUDIO_RET
         
 PLAY_MUSIC:
+        MOV DX,0E483H
+        MOV AL,01010000B
+        OUT DX,AL
+        
+        MOV DX,0E481H
+        
+        MOV AL,115
+        OUT DX,AL
+
+        
+        
         CALL GET_SAMPLE
 
         PUSH AX
@@ -232,23 +388,10 @@ PLAY_MUSIC:
         MUL BL
         MOV BL,255
         DIV BL
-
         MOV DX,0E490H
         OUT DX,AL
-
-        MOV DX,0E483H
-        MOV AL,01010000B
-        OUT DX,AL
-        
-        MOV DX,0E481H
-        
-        MOV AL,125
-        OUT DX,AL
-
         MOV DX,0E498H
         OUT DX,AL
-
-
         JMP AUDIO_RET
 START_MUSIC:
 
@@ -276,13 +419,16 @@ START_MUSIC:
         JMP PLAY_MUSIC
         
 AUDIO_RET:
+        POP DI
+        POP SI
+        POP DX
+        POP CX
+        POP BX
+        POP AX
         RET
 AUDIO_OUTPUT ENDP
 
-TIMER PROC NEAR
 
-        RET
-TIMER ENDP
 
 READ_FILE PROC NEAR
         MOV AH,3FH
@@ -296,14 +442,6 @@ READ_FILE PROC NEAR
         RET
 ERROR:
 READ_FILE ENDP
-
-END_GAME PROC NEAR
-        MOV AX,3
-        INT 10H
-        MOV AH,4CH
-        INT 21H
-END_GAME ENDP
-
 
 
 GET_KEYBOARD PROC NEAR
@@ -463,6 +601,7 @@ CHECK_OUT_READY PROC NEAR
         MOV DX,0E4B9H
 
 LOOP_O_NOT_READY:
+        CALL AUDIO_OUTPUT
         IN AL,DX
         AND AL,1
         CMP AL,1
@@ -604,10 +743,18 @@ PARSEKEY PROC NEAR
         JE KEY_D
         CMP AL,' '
         JE LABEL_JMP_1
+        CMP AL,1BH
+        JE LABEL_JMP_2
+
         JMP ILLEGAL
+
+
 
 LABEL_JMP_1:
         JMP KEY_SPACE
+LABEL_JMP_2:
+        JMP KEY_ESC
+
 KEY_S:
         CALL GET_PIC_INDEX
         CALL DRAWPIC
@@ -672,11 +819,18 @@ KEY_SPACE:
         JNE NOT_WIN
         MOV AX,[CUR_PLAYER]
         MOV [WINNER],AX
+        CALL WIN
+
+KEY_ESC:
+
         CALL END_GAME
+
 
 NOT_WIN:
         CALL CHANGE_PLAYER
         JMP RET_
+
+
 ILLEGAL:
 
 RET_:
@@ -694,6 +848,8 @@ CHANGE_PLAYER PROC NEAR
         MOV AL,0BH
         INT 21H
 
+        MOV [SEC_1],0
+        MOV [SEC_2],0
         RET
 LABEL_PLAYER2:
         MOV [CUR_PLAYER],2
@@ -734,6 +890,8 @@ DRAWPIC PROC NEAR
         MOV SI,0
         MOV DI,0
 LOOP_L:
+        CALL AUDIO_OUTPUT
+
         MOV BX,SI
         MOV CL,4
         SHL BX,CL

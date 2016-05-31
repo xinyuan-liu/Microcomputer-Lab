@@ -82,14 +82,16 @@ LABEL_1:
         CALL READ_FILE
         CALL SEND
 
-        ;MOV CX,0H
-        ;MOV DX,1
-        ;MOV AH,86H
-        ;INT 15H
+        MOV CX,0H
+        MOV DX,100
+        MOV AH,86H
+        INT 15H
 
         CMP [SIZE_],64
         JE LABEL_1
 
+        MOV BL,0FFH
+        CALL BEEP
 EXIT_:
         MOV AH,4CH
         INT 21H
@@ -154,9 +156,9 @@ SEND PROC NEAR
         MOV BL,[SIZE_]
         MOV BH,0
         MOV [BUFFER+BX],'$'
-        MOV DX,OFFSET BUFFER
-        MOV AH,09H
-        INT 21H
+        ;MOV DX,OFFSET BUFFER
+        ;MOV AH,09H
+        ;INT 21H
 
         CALL CHECK_OUT_READY
         MOV DX,0E4B8H
@@ -169,6 +171,10 @@ LOOP_SEND:
         MOV DX,0E4B8H
         MOV AL,[BUFFER+BX]
         OUT DX,AL
+
+        MOV DL,AL
+        MOV AH,02H
+        INT 21H
         INC BX
         CMP BL,[SIZE_]
         JL LOOP_SEND
@@ -383,7 +389,27 @@ LOOP_O_NOT_READY:
         RET
 CHECK_OUT_READY ENDP
 
-
+BEEP PROC NEAR
+        PUSH CX
+        MOV BX,0FFFH
+        MOV AL,10110110B
+        OUT 43H,AL
+        MOV AX,1190
+        OUT 42H,AL
+        MOV AL,AH
+        OUT 42H,AL
+        IN AL,61H
+        MOV AH,AL
+        OR AL,03H
+        OUT 61H,AL
+        MOV CX,0
+L0:     LOOP L0
+        DEC BX
+        JNZ L0
+        MOV AL,AH
+        OUT 61H,AL
+        POP CX
+        RET
 CODE ENDS 
 END START
         
